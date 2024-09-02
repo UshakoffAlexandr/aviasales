@@ -1,0 +1,31 @@
+.app {
+  font-family: Arial, sans-serif;
+  max-width: 770px;
+  margin-inline: auto;
+  margin-bottom: 40px;
+  display: grid;
+  grid-template-rows: 150px 1fr;
+  grid-template-columns: 300px 1fr;
+  grid-template-areas:
+    'header header'
+    'aside main';
+
+  @media (max-width: 450px) {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+  }
+}
+
+.header {
+  grid-area: header;
+  margin: auto;
+}
+
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
