@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import uniqid from 'uniqid';
-import { filterTickets, setFoneLoading } from '../../store/ticketsSlice';
+import { setFoneLoading } from '../../store/ticketsSlice';
 
 import classes from './TicketsList.module.scss';
-
 import Ticket from '../Ticket/Ticket';
 
 export default function TicketsList() {
   const dispatch = useDispatch();
   const isTicketsLoad = useSelector((state) => state.tickets.isTicketsLoad);
   const isFoneLoading = useSelector((state) => state.tickets.isFoneLoading);
-  const filteredTickets = useSelector((state) => state.tickets.filteredTickets);
+  const tickets = useSelector((state) => state.tickets.tickets);
   const sortValue = useSelector((state) => state.tickets.sortValue);
   const filters = useSelector((state) => state.tickets.filters);
 
@@ -21,11 +19,27 @@ export default function TicketsList() {
     if (!isTicketsLoad) {
       dispatch(setFoneLoading(false));
     }
-    dispatch(filterTickets());
-  }, [sortValue, filters, isTicketsLoad]);
+  }, [isTicketsLoad, dispatch]);
 
-  const limitTicketsViewCount = (tickets, limit) => tickets.slice(0, limit);
-  const limitedTickets = limitTicketsViewCount(filteredTickets, showTicketsLimit);
+  const filteredTickets = useMemo(() => {
+    const selectedFilters = filters
+      .filter((filter) => filter.isChecked && filter.id !== 'all')
+      .map((filter) => filter.id);
+
+    let filtered = tickets.filter((ticket) =>
+      ticket.segments.some((segment) => selectedFilters.includes(segment.stops.length))
+    );
+
+    if (sortValue === 'Самый дешевый') {
+      filtered = filtered.sort((a, b) => a.price - b.price);
+    } else if (sortValue === 'Самый быстрый') {
+      filtered = filtered.sort((a, b) => a.segments[0].duration - b.segments[0].duration);
+    }
+
+    return filtered;
+  }, [tickets, sortValue, filters]);
+
+  const limitedTickets = useMemo(() => filteredTickets.slice(0, showTicketsLimit), [filteredTickets, showTicketsLimit]);
 
   const handleShowMore = () => {
     setShowTicketsLimit(showTicketsLimit + 5);
@@ -35,7 +49,7 @@ export default function TicketsList() {
     <>
       <ul>
         {limitedTickets.map((ticket) => (
-          <li key={uniqid(`${ticket.carrier}`)} className={classes.ticket}>
+          <li key={`${ticket.carrier}-${ticket.flightNumber}`} className={classes.ticket}>
             <Ticket ticket={ticket} />
           </li>
         ))}

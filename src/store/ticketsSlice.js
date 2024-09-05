@@ -1,36 +1,41 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-export const fetchTickets = createAsyncThunk('tickets/fetchTickets', async (_, { dispatch }) => {
+export const fetchTickets = createAsyncThunk('tickets/fetchTickets', async (_, { dispatch, rejectWithValue }) => {
   const base = 'https://aviasales-test-api.kata.academy';
   let shouldContinue = true;
   const ticketsArr = [];
 
-  const searchIdRes = await fetch(`${base}/search`);
-  const { searchId } = await searchIdRes.json();
+  try {
+    const searchIdRes = await fetch(`${base}/search`);
+    const { searchId } = await searchIdRes.json();
 
-  while (shouldContinue) {
-    try {
-      const ticketsRes = await fetch(`${base}/tickets?searchId=${searchId}`);
-      const ticketsData = await ticketsRes.json();
-      ticketsArr.push(...ticketsData.tickets);
-      if (ticketsArr.length === 500) {
-        dispatch(addTickets(ticketsData.tickets));
-        dispatch(setFoneLoading(true));
+    while (shouldContinue) {
+      try {
+        const ticketsRes = await fetch(`${base}/tickets?searchId=${searchId}`);
+        if (!ticketsRes.ok) {
+          throw new Error('Ошибка получения данных с сервера');
+        }
+        const ticketsData = await ticketsRes.json();
+        ticketsArr.push(...ticketsData.tickets);
+        if (ticketsArr.length === 500) {
+          dispatch(addTickets(ticketsData.tickets));
+          dispatch(setFoneLoading(true));
+        }
+        shouldContinue = !ticketsData.stop;
+      } catch (error) {
+        if (error.message !== 'Ошибка получения данных с сервера') {
+          // Ошибка не связана с сервером, нужно оповестить пользователя
+          return rejectWithValue(error.message);
+        }
+        // Ошибка сервера, продолжаем попытки
       }
-      shouldContinue = !ticketsData.stop;
-    } catch {}
+    }
+
+    return ticketsArr;
+  } catch (error) {
+    return rejectWithValue('Ошибка при получении Search ID');
   }
-
-  return ticketsArr;
 });
-
-const filters = [
-  { id: 'all', name: 'Все', isChecked: false },
-  { id: 0, name: 'Без пересадок', isChecked: true },
-  { id: 1, name: '1 пересадка', isChecked: true },
-  { id: 2, name: '2 пересадки', isChecked: true },
-  { id: 3, name: '3 пересадки', isChecked: false },
-];
 
 const ticketsSlice = createSlice({
   name: 'tickets',
@@ -38,19 +43,24 @@ const ticketsSlice = createSlice({
     tickets: [],
     filteredTickets: [],
     sortValue: 'Самый дешевый',
-    filters,
+    filters: [
+      { id: 'all', name: 'Все', isChecked: false },
+      { id: 0, name: 'Без пересадок', isChecked: true },
+      { id: 1, name: '1 пересадка', isChecked: true },
+      { id: 2, name: '2 пересадки', isChecked: true },
+      { id: 3, name: '3 пересадки', isChecked: false },
+    ],
     isTicketsLoad: false,
     isFoneLoading: null,
+    errorMessage: null,
   },
   reducers: {
     addTickets(state, action) {
       state.tickets.push(...action.payload);
-      state.filteredTickets = state.tickets;
     },
     setSortValue(state, action) {
       state.sortValue = action.payload.sort;
     },
-
     setFilter(state, action) {
       const { id, isChecked } = action.payload;
       if (id === 'all') {
@@ -64,26 +74,11 @@ const ticketsSlice = createSlice({
         allFilter.isChecked = state.filters.filter((f) => f.id !== 'all').every((f) => f.isChecked);
       }
     },
-
-    filterTickets(state) {
-      const selectedFilters = state.filters
-        .filter((filter) => filter.isChecked && filter.id !== 'all')
-        .map((filter) => filter.id);
-
-      state.filteredTickets = state.tickets.filter((ticket) =>
-        ticket.segments.some((segment) => selectedFilters.includes(segment.stops.length))
-      );
-
-      if (state.sortValue === 'Самый дешевый') {
-        state.filteredTickets.sort((a, b) => a.price - b.price);
-      }
-
-      if (state.sortValue === 'Самый быстрый') {
-        state.filteredTickets.sort((a, b) => a.segments[0].duration - b.segments[0].duration);
-      }
-    },
     setFoneLoading(state, action) {
       state.isFoneLoading = action.payload.isFoneLoading;
+    },
+    clearErrorMessage(state) {
+      state.errorMessage = null;
     },
   },
   extraReducers: (builder) => {
@@ -92,12 +87,15 @@ const ticketsSlice = createSlice({
       state.isFoneLoading = false;
     });
     builder.addCase(fetchTickets.fulfilled, (state, action) => {
-      state.tickets = action.payload;
+      state.tickets.push(...action.payload);
       state.isTicketsLoad = false;
     });
+    builder.addCase(fetchTickets.rejected, (state, action) => {
+      state.isTicketsLoad = false;
+      state.errorMessage = action.payload;
+    });
   },
-  serializeCheck: false,
 });
 
-export const { addTickets, setSortValue, setFilter, filterTickets, setFoneLoading } = ticketsSlice.actions;
+export const { addTickets, setSortValue, setFilter, setFoneLoading, clearErrorMessage } = ticketsSlice.actions;
 export default ticketsSlice.reducer;
