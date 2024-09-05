@@ -41,15 +41,13 @@ export default function TicketsList() {
 
   const limitedTickets = useMemo(() => filteredTickets.slice(0, showTicketsLimit), [filteredTickets, showTicketsLimit]);
 
-  const handleShowMore = () => {
-    setShowTicketsLimit(showTicketsLimit + 5);
-  };
+  const handleShowMore = () => setShowTicketsLimit(showTicketsLimit + 5);
 
   const content = (
     <>
       <ul>
         {limitedTickets.map((ticket) => (
-          <li key={`${ticket.carrier}-${ticket.flightNumber}`} className={classes.ticket}>
+          <li key={`${ticket.carrier}`} className={classes.ticket}>
             <Ticket ticket={ticket} />
           </li>
         ))}
