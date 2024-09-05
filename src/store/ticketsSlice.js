@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import uniqid from 'uniqid';
 
 export const fetchTickets = createAsyncThunk('tickets/fetchTickets', async (_, { dispatch, rejectWithValue }) => {
   const base = 'https://aviasales-test-api.kata.academy';
@@ -16,12 +17,20 @@ export const fetchTickets = createAsyncThunk('tickets/fetchTickets', async (_, {
           throw new Error('Ошибка получения данных с сервера');
         }
         const ticketsData = await ticketsRes.json();
-        ticketsArr.push(...ticketsData.tickets);
+        const { tickets, stop } = ticketsData;
+        if (!tickets || !Array.isArray(tickets)) {
+          throw new Error('Некорректный формат данных от сервера');
+        }
+        const ticketsWithId = tickets.map((ticket) => ({
+          ...ticket,
+          id: uniqid(ticket.carrier),
+        }));
+        ticketsArr.push(...ticketsWithId);
         if (ticketsArr.length === 500) {
-          dispatch(addTickets(ticketsData.tickets));
+          dispatch(addTickets(ticketsWithId));
           dispatch(setFoneLoading(true));
         }
-        shouldContinue = !ticketsData.stop;
+        shouldContinue = !stop;
       } catch (error) {
         if (error.message !== 'Ошибка получения данных с сервера') {
           return rejectWithValue(error.message);
