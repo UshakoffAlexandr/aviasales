@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import uniqid from 'uniqid';
 import { setFoneLoading } from '../../store/ticketsSlice';
 
 import classes from './TicketsList.module.scss';
@@ -47,7 +48,7 @@ export default function TicketsList() {
     <>
       <ul>
         {limitedTickets.map((ticket) => (
-          <li key={`${ticket.carrier}`} className={classes.ticket}>
+          <li key={uniqid(`${ticket.carrier}`)} className={classes.ticket}>
             <Ticket ticket={ticket} />
           </li>
         ))}
