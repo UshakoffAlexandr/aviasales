@@ -13,6 +13,7 @@ export default function TicketsList() {
   const tickets = useSelector((state) => state.tickets.tickets);
   const sortValue = useSelector((state) => state.tickets.sortValue);
   const filters = useSelector((state) => state.tickets.filters);
+  const errorMessage = useSelector((state) => state.tickets.errorMessage);
 
   const [showTicketsLimit, setShowTicketsLimit] = useState(5);
 
@@ -67,9 +68,13 @@ export default function TicketsList() {
     <div className={classes['tickets-list__loader']}>{isTicketsLoad ? 'Загрузка билетов...' : 'Билеты загружены'}</div>
   );
 
+  const error = errorMessage ? (
+    <div className={classes['no-results-message']}>Произошла ошибка: {errorMessage}</div>
+  ) : null;
+
   return (
     <div className={classes.container}>
-      {loader}
+      {!error ? loader : error}
       {!isFoneLoading && !filteredTickets.length ? noRes : content}
     </div>
   );
