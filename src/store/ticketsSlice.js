@@ -41,7 +41,6 @@ export const fetchTickets = createAsyncThunk('tickets/fetchTickets', async (_, {
         }
       } catch (error) {
         if (error.message === 'Ошибка получения данных с сервера') {
-          // Повторная попытка запроса из-за ошибки сервера
         } else {
           shouldContinue = false;
           return rejectWithValue(error.message);
