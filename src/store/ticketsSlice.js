@@ -14,25 +14,36 @@ export const fetchTickets = createAsyncThunk('tickets/fetchTickets', async (_, {
       try {
         const ticketsRes = await fetch(`${base}/tickets?searchId=${searchId}`);
         if (!ticketsRes.ok) {
-          throw new Error('Ошибка получения данных с сервера');
+          if (ticketsRes.status >= 500) {
+            throw new Error('Ошибка получения данных с сервера');
+          } else {
+            shouldContinue = false;
+            return rejectWithValue('Ошибка при получении данных');
+          }
         }
         const ticketsData = await ticketsRes.json();
         const { tickets, stop } = ticketsData;
+
         if (!tickets || !Array.isArray(tickets)) {
           throw new Error('Некорректный формат данных от сервера');
         }
+
         const ticketsWithId = tickets.map((ticket) => ({
           ...ticket,
           id: uniqid(ticket.carrier),
         }));
-        ticketsArr.push(...ticketsWithId);
-        if (ticketsArr.length === 500) {
-          dispatch(addTickets(ticketsWithId));
-          dispatch(setFoneLoading(true));
+
+        dispatch(addTickets(ticketsWithId));
+        dispatch(setFoneLoading(true));
+
+        if (stop) {
+          shouldContinue = false;
         }
-        shouldContinue = !stop;
       } catch (error) {
-        if (error.message !== 'Ошибка получения данных с сервера') {
+        if (error.message === 'Ошибка получения данных с сервера') {
+          // Повторная попытка запроса из-за ошибки сервера
+        } else {
+          shouldContinue = false;
           return rejectWithValue(error.message);
         }
       }
@@ -48,7 +59,6 @@ const ticketsSlice = createSlice({
   name: 'tickets',
   initialState: {
     tickets: [],
-    filteredTickets: [],
     sortValue: 'Самый дешевый',
     filters: [
       { id: 'all', name: 'Все', isChecked: false },
@@ -82,7 +92,7 @@ const ticketsSlice = createSlice({
       }
     },
     setFoneLoading(state, action) {
-      state.isFoneLoading = action.payload.isFoneLoading;
+      state.isFoneLoading = action.payload;
     },
     clearErrorMessage(state) {
       state.errorMessage = null;
@@ -93,8 +103,7 @@ const ticketsSlice = createSlice({
       state.isTicketsLoad = true;
       state.isFoneLoading = false;
     });
-    builder.addCase(fetchTickets.fulfilled, (state, action) => {
-      state.tickets.push(...action.payload);
+    builder.addCase(fetchTickets.fulfilled, (state) => {
       state.isTicketsLoad = false;
     });
     builder.addCase(fetchTickets.rejected, (state, action) => {
